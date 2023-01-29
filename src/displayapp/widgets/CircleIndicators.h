@@ -48,9 +48,24 @@ namespace Pinetime {
           void SetHidden(bool enable);
           void ChangeColors(int arcFgColor, int arcBgColor, int objectColors);
       };
-      // class DateWidgetIndicator: ICircleWidgetIndicator{
-
-      // };
+      class DateWidgetIndicator{
+        private:
+          Pinetime::Controllers::DateTime * dateTimeController;
+          Coordinates coordinates;
+          lv_obj_t* label_date_day;
+          lv_obj_t *dateArc;
+          Screens::DirtyValue<std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>> currentDateTime;
+          Pinetime::Controllers::DateTime::Months currentMonth = Pinetime::Controllers::DateTime::Months::Unknown;
+          Pinetime::Controllers::DateTime::Days currentDayOfWeek = Pinetime::Controllers::DateTime::Days::Unknown;
+          uint8_t currentDay = 0;
+        public:
+          DateWidgetIndicator(Coordinates coordinatesInitial, Controllers::DateTime * dateTimeController, const lv_font_t* font);
+          void SetPosition(Coordinates coordinates);
+          Coordinates GetPosition();
+          void Refresh();
+          void SetHidden(bool enable);
+          void ChangeColors(int arcFgColor, int arcBgColor, int objectColors);
+      };
       // class HeartRateWidgetIndicator: ICircleWidgetIndicator{
 
       // };

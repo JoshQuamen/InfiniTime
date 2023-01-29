@@ -148,3 +148,74 @@ void StepsWidgetIndicator::ChangeColors(int arcFgColor, int arcBgColor, int obje
   lv_obj_set_style_local_text_color(stepsValue, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(objectColors));
   
 }
+
+/************************************************************\
+|                                                            |
+|                   Date Widget Indicator                    |
+|                                                            |
+\************************************************************/
+DateWidgetIndicator::DateWidgetIndicator(Coordinates coordinatesInitial, Controllers::DateTime * dateTimeCtrl, const lv_font_t* font)
+{
+  coordinates = coordinatesInitial;
+  dateTimeController = dateTimeCtrl;
+  dateArc = lv_arc_create(lv_scr_act(), nullptr);
+  lv_arc_set_bg_angles(dateArc, 180, 540);
+  lv_arc_set_range(dateArc, 0, 1);
+  lv_arc_set_value(dateArc, 1);
+  lv_arc_set_adjustable(dateArc, false);
+  lv_obj_set_width(dateArc, lv_obj_get_width(lv_scr_act())*0.3);
+  lv_obj_set_height(dateArc, lv_obj_get_height(lv_scr_act())*0.3);
+  lv_obj_align(dateArc, NULL, LV_ALIGN_CENTER, coordinates.x, coordinates.y);
+  lv_obj_set_style_local_line_width(dateArc, LV_ARC_PART_INDIC, LV_STATE_DEFAULT, 4);
+  lv_obj_set_style_local_line_width(dateArc, LV_ARC_PART_BG, LV_STATE_DEFAULT, 4);
+  lv_obj_set_style_local_line_opa(dateArc, LV_ARC_PART_KNOB, LV_STATE_DEFAULT, LV_OPA_0);
+  lv_obj_set_click(dateArc, false);
+
+  label_date_day = lv_label_create(lv_scr_act(), NULL);
+  lv_obj_set_style_local_text_font(label_date_day, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, font);
+  lv_label_set_text_fmt(label_date_day, "%s\n%02i", dateTimeController->DayOfWeekShortToStringLow(), dateTimeController->Day());
+  lv_label_set_align(label_date_day, LV_LABEL_ALIGN_CENTER);
+  lv_obj_align(label_date_day, dateArc, LV_ALIGN_CENTER, 0, 0);
+}
+
+void DateWidgetIndicator::SetPosition(Coordinates newCoordinates)
+{
+  coordinates = newCoordinates;
+  lv_obj_align(dateArc, NULL, LV_ALIGN_CENTER, coordinates.x, coordinates.y);
+  lv_obj_align(label_date_day, dateArc, LV_ALIGN_CENTER, 0, 0);
+}
+
+Coordinates DateWidgetIndicator::GetPosition()
+{
+  return coordinates;
+}
+
+void DateWidgetIndicator::Refresh()
+{
+  currentDateTime = dateTimeController->CurrentDateTime();
+
+  if (currentDateTime.IsUpdated()) {
+    Pinetime::Controllers::DateTime::Months month = dateTimeController->Month();
+    uint8_t day = dateTimeController->Day();
+    Pinetime::Controllers::DateTime::Days dayOfWeek = dateTimeController->DayOfWeek();
+
+    if ((month != currentMonth) || (dayOfWeek != currentDayOfWeek) || (day != currentDay)) {
+      lv_label_set_text_fmt(label_date_day, "%s\n%02i", dateTimeController->DayOfWeekShortToStringLow(), day);
+
+      currentMonth = month;
+      currentDayOfWeek = dayOfWeek;
+      currentDay = day;
+    }
+  }
+}
+void DateWidgetIndicator::SetHidden(bool enable)
+{
+  lv_obj_set_hidden(dateArc, enable);
+  lv_obj_set_hidden(label_date_day, enable);
+}
+void DateWidgetIndicator::ChangeColors(int arcFgColor, int arcBgColor, int objectColors)
+{
+  lv_obj_set_style_local_line_color(dateArc, LV_ARC_PART_INDIC, LV_STATE_DEFAULT, lv_color_hex(arcFgColor));
+  lv_obj_set_style_local_line_color(dateArc, LV_ARC_PART_BG, LV_STATE_DEFAULT, lv_color_hex(arcBgColor));
+  lv_obj_set_style_local_text_color(label_date_day, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(objectColors));  
+}

@@ -78,6 +78,7 @@ WatchFaceModernAnalog::WatchFaceModernAnalog(Pinetime::Applications::DisplayApp*
   sMinute = 99;
   sSecond = 99;
 
+  // Clock Face
   lv_coord_t x1, x2, y1, y2;
   for(int i = 0; i < 51; i++)
   {
@@ -116,27 +117,10 @@ WatchFaceModernAnalog::WatchFaceModernAnalog(Pinetime::Applications::DisplayApp*
   stepsWidgetIndicator->ChangeColors(0x00FFFF, 0x808080, 0x808080);
 
   // Date Indicator
-  dateArc = lv_arc_create(lv_scr_act(), nullptr);
-  dateArc->user_data = this;  
-  lv_arc_set_bg_angles(dateArc, 180, 540);
-  lv_arc_set_range(dateArc, 0, 1);
-  lv_arc_set_value(dateArc, 1);
-  lv_arc_set_adjustable(dateArc, false);
-  lv_obj_set_width(dateArc, INDICATOR_ARC_SIZE);
-  lv_obj_set_height(dateArc, INDICATOR_ARC_SIZE);
-  lv_obj_align(dateArc, NULL, LV_ALIGN_CENTER, lv_obj_get_width(lv_scr_act())/4, 0);
-  lv_obj_set_style_local_line_color(dateArc, LV_ARC_PART_INDIC, LV_STATE_DEFAULT, LV_COLOR_CYAN);
-  lv_obj_set_style_local_line_width(dateArc, LV_ARC_PART_INDIC, LV_STATE_DEFAULT, 4);
-  lv_obj_set_style_local_line_width(dateArc, LV_ARC_PART_BG, LV_STATE_DEFAULT, 4);
-  lv_obj_set_style_local_line_opa(dateArc, LV_ARC_PART_KNOB, LV_STATE_DEFAULT, LV_OPA_0);
-  lv_obj_set_click(dateArc, false);
-
-  label_date_day = lv_label_create(lv_scr_act(), NULL);
-  lv_obj_set_style_local_text_color(label_date_day, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x999999));
-  lv_obj_set_style_local_text_font(label_date_day, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, font_teko);
-  lv_label_set_text_fmt(label_date_day, "%s\n%02i", dateTimeController.DayOfWeekShortToStringLow(), dateTimeController.Day());
-  lv_label_set_align(label_date_day, LV_LABEL_ALIGN_CENTER);
-  lv_obj_align(label_date_day, dateArc, LV_ALIGN_CENTER, 0, 0);
+  initialCoords.x = lv_obj_get_width(lv_scr_act())/4;
+  initialCoords.y = 0;
+  dateWidgetIndicator = new Widgets::DateWidgetIndicator(initialCoords, &dateTimeController, font_teko);
+  dateWidgetIndicator->ChangeColors(0x00FFFF, 0x808080, 0x808080);
 
 
   bleIcon = lv_label_create(lv_scr_act(), nullptr);
@@ -269,7 +253,7 @@ void WatchFaceModernAnalog::UpdateClock() {
 void WatchFaceModernAnalog::Refresh() {
   batteryWidgetIndicator->Refresh();
   stepsWidgetIndicator->Refresh();
-  
+  dateWidgetIndicator->Refresh();
 
   bleState = bleController.IsConnected();
   if(bleState.IsUpdated()){
@@ -287,20 +271,8 @@ void WatchFaceModernAnalog::Refresh() {
   }
 
   currentDateTime = dateTimeController.CurrentDateTime();
-
   if (currentDateTime.IsUpdated()) {
-    Pinetime::Controllers::DateTime::Months month = dateTimeController.Month();
-    uint8_t day = dateTimeController.Day();
-    Pinetime::Controllers::DateTime::Days dayOfWeek = dateTimeController.DayOfWeek();
-
     UpdateClock();
-    if ((month != currentMonth) || (dayOfWeek != currentDayOfWeek) || (day != currentDay)) {
-      lv_label_set_text_fmt(label_date_day, "%s\n%02i", dateTimeController.DayOfWeekShortToStringLow(), day);
-
-      currentMonth = month;
-      currentDayOfWeek = dayOfWeek;
-      currentDay = day;
-    }
   }
 }
 

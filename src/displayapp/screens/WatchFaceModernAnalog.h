@@ -44,10 +44,6 @@ namespace Pinetime {
       private:
         uint8_t sHour, sMinute, sSecond;
 
-        Pinetime::Controllers::DateTime::Months currentMonth = Pinetime::Controllers::DateTime::Months::Unknown;
-        Pinetime::Controllers::DateTime::Days currentDayOfWeek = Pinetime::Controllers::DateTime::Days::Unknown;
-        uint8_t currentDay = 0;
-
         DirtyValue<bool> bleState {};
         DirtyValue<bool> bleRadioEnabled {};
         DirtyValue<std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>> currentDateTime;
@@ -77,16 +73,14 @@ namespace Pinetime {
 
         
         lv_obj_t* logoPine;
-        lv_obj_t* label_date_day;
         lv_obj_t* label_hour_minute;
         lv_obj_t* bleIcon;
         lv_obj_t* notificationIcon;
 
-        lv_obj_t *dateArc;
-
 
         Widgets::BatteryWidgetIndicator* batteryWidgetIndicator;
         Widgets::StepsWidgetIndicator* stepsWidgetIndicator;
+        Widgets::DateWidgetIndicator* dateWidgetIndicator;
 
         const Controllers::DateTime& dateTimeController;
         Controllers::Battery& batteryController;
