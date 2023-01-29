@@ -103,53 +103,17 @@ WatchFaceModernAnalog::WatchFaceModernAnalog(Pinetime::Applications::DisplayApp*
   lv_obj_set_style_local_image_recolor(logoPine, LV_IMG_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
 
   // Battery Indicator
-  batteryArc = lv_arc_create(lv_scr_act(), nullptr);
-  batteryArc->user_data = this;  
-  lv_arc_set_bg_angles(batteryArc, 180, 540);
-  lv_arc_set_range(batteryArc, 0, 100);
-  lv_arc_set_adjustable(batteryArc, false);
-  lv_obj_set_width(batteryArc, INDICATOR_ARC_SIZE);
-  lv_obj_set_height(batteryArc, INDICATOR_ARC_SIZE);
-  lv_obj_align(batteryArc, NULL, LV_ALIGN_CENTER, -lv_obj_get_width(lv_scr_act())/4, 0);
-  lv_obj_set_style_local_line_color(batteryArc, LV_ARC_PART_INDIC, LV_STATE_DEFAULT, LV_COLOR_CYAN);
-  lv_obj_set_style_local_line_width(batteryArc, LV_ARC_PART_INDIC, LV_STATE_DEFAULT, 4);
-  lv_obj_set_style_local_line_width(batteryArc, LV_ARC_PART_BG, LV_STATE_DEFAULT, 4);
-  lv_obj_set_style_local_line_opa(batteryArc, LV_ARC_PART_KNOB, LV_STATE_DEFAULT, LV_OPA_0);
-  lv_obj_set_click(batteryArc, false);
-
-  batteryIcon.Create(lv_scr_act());
-  batteryIcon.SetColor(lv_color_hex(0x999999));
-  lv_obj_align(batteryIcon.GetObject(), batteryArc, LV_ALIGN_CENTER, 0, 0);
-
-  chargeIcon = lv_label_create(lv_scr_act(), nullptr);
-  lv_label_set_text_static(chargeIcon, Symbols::lightning);
-  lv_obj_set_style_local_text_color(chargeIcon, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_LIME);
-  lv_obj_align(chargeIcon, batteryArc, LV_ALIGN_CENTER, 0, 0);
+  Widgets::Coordinates initialCoords;
+  initialCoords.x = -lv_obj_get_width(lv_scr_act())/4;
+  initialCoords.y = 0;
+  batteryWidgetIndicator = new Widgets::BatteryWidgetIndicator(initialCoords, &batteryController);
+  batteryWidgetIndicator->ChangeColors(0x00FFFF, 0x808080, 0x808080);
 
   // Step Indicator
-  stepsArc = lv_arc_create(lv_scr_act(), nullptr);
-  stepsArc->user_data = this;  
-  lv_arc_set_bg_angles(stepsArc, 180, 540);
-  lv_arc_set_range(stepsArc, 0, settingsController.GetStepsGoal());
-  lv_arc_set_adjustable(stepsArc, false);
-  lv_obj_set_width(stepsArc, INDICATOR_ARC_SIZE);
-  lv_obj_set_height(stepsArc, INDICATOR_ARC_SIZE);
-  lv_obj_align(stepsArc, NULL, LV_ALIGN_CENTER, 0, lv_obj_get_height(lv_scr_act())/4);
-  lv_obj_set_style_local_line_color(stepsArc, LV_ARC_PART_INDIC, LV_STATE_DEFAULT, LV_COLOR_CYAN);
-  lv_obj_set_style_local_line_width(stepsArc, LV_ARC_PART_INDIC, LV_STATE_DEFAULT, 4);
-  lv_obj_set_style_local_line_width(stepsArc, LV_ARC_PART_BG, LV_STATE_DEFAULT, 4);
-  lv_obj_set_style_local_line_opa(stepsArc, LV_ARC_PART_KNOB, LV_STATE_DEFAULT, LV_OPA_0);
-  lv_obj_set_click(stepsArc, false);
-
-  stepsIcon = lv_label_create(lv_scr_act(), nullptr);
-  lv_label_set_text_static(stepsIcon, Symbols::shoe);
-  lv_obj_align(stepsIcon, stepsArc, LV_ALIGN_CENTER, 0, 10);
-  stepsValue = lv_label_create(lv_scr_act(), nullptr);
-  lv_obj_set_style_local_text_color(stepsIcon, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x999999));
-  lv_obj_set_style_local_text_color(stepsValue, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x999999));
-  lv_obj_set_style_local_text_font(stepsValue, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, font_teko);
-  lv_obj_align(stepsValue, stepsArc, LV_ALIGN_CENTER, 0, -10);
-  lv_label_set_text(stepsValue, "0");
+  initialCoords.x = 0;
+  initialCoords.y = lv_obj_get_width(lv_scr_act())/4;
+  stepsWidgetIndicator = new Widgets::StepsWidgetIndicator(initialCoords, &settingsController, &motionController, font_teko);
+  stepsWidgetIndicator->ChangeColors(0x00FFFF, 0x808080, 0x808080);
 
   // Date Indicator
   dateArc = lv_arc_create(lv_scr_act(), nullptr);
@@ -187,7 +151,9 @@ WatchFaceModernAnalog::WatchFaceModernAnalog(Pinetime::Applications::DisplayApp*
 
   label_hour_minute = lv_label_create(lv_scr_act(), NULL);
   lv_obj_set_style_local_text_color(label_hour_minute, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_CYAN);
-  int hour = settingsController.GetClockType() == Controllers::Settings::ClockType::H12 ? dateTimeController.Hours()%12 : dateTimeController.Hours(); 
+  int hour = dateTimeController.Hours(); 
+  if(settingsController.GetClockType() == Controllers::Settings::ClockType::H12 && hour > 12)
+    hour -= 12;
   lv_label_set_text_fmt(label_hour_minute, "%d:%02d", hour, dateTimeController.Minutes());
   lv_obj_set_style_local_text_font(label_hour_minute, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, font_segment40);
   lv_label_set_align(label_hour_minute, LV_LABEL_ALIGN_CENTER);
@@ -285,8 +251,9 @@ void WatchFaceModernAnalog::UpdateClock() {
 
     lv_line_set_points(hour_body, hour_point, 2);
     lv_line_set_points(hour_body_trace, hour_point_trace, 2);
-    uint8_t hourText = settingsController.GetClockType() == Controllers::Settings::ClockType::H12 ? hour%12 : hour; 
-    lv_label_set_text_fmt(label_hour_minute, "%d:%02d", hourText, minute);
+    if(settingsController.GetClockType() == Controllers::Settings::ClockType::H12 && hour > 12)
+      hour -= 12;
+    lv_label_set_text_fmt(label_hour_minute, "%d:%02d", hour, minute);
   }
 
   if (sSecond != second) {
@@ -299,32 +266,10 @@ void WatchFaceModernAnalog::UpdateClock() {
   }
 }
 
-void WatchFaceModernAnalog::SetBatteryIndicator() {
-  batteryPercentRemaining = batteryController.PercentRemaining();
-  if(batteryPercentRemaining.IsUpdated()) {
-    lv_arc_set_value(batteryArc, batteryPercentRemaining.Get());
-  }
-  isCharging = batteryController.IsCharging();
-  if(isCharging.Get()){
-    batteryIcon.SetBatteryPercentage(100);
-    lv_obj_set_hidden(chargeIcon, false);
-  }
-  else{
-    batteryIcon.SetBatteryPercentage(batteryPercentRemaining.Get());
-    lv_obj_set_hidden(chargeIcon, true);
-  }
-}
-
 void WatchFaceModernAnalog::Refresh() {
-  SetBatteryIndicator();
-
-  stepCount = motionController.NbSteps();
-  motionSensorOk = motionController.IsSensorOk();
-  if (stepCount.IsUpdated() || motionSensorOk.IsUpdated()) {
-    lv_label_set_text_fmt(stepsValue, "%lu", stepCount.Get());
-    lv_obj_align(stepsValue, stepsArc, LV_ALIGN_CENTER, 0, -10);
-    lv_arc_set_value(stepsArc, stepCount.Get());
-  }
+  batteryWidgetIndicator->Refresh();
+  stepsWidgetIndicator->Refresh();
+  
 
   bleState = bleController.IsConnected();
   if(bleState.IsUpdated()){

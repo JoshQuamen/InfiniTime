@@ -11,6 +11,7 @@
 #include "components/ble/NotificationManager.h"
 #include "components/motion/MotionController.h"
 #include <displayapp/screens/BatteryIcon.h>
+#include "displayapp/widgets/CircleIndicators.h"
 
 namespace Pinetime {
   namespace Controllers {
@@ -47,14 +48,11 @@ namespace Pinetime {
         Pinetime::Controllers::DateTime::Days currentDayOfWeek = Pinetime::Controllers::DateTime::Days::Unknown;
         uint8_t currentDay = 0;
 
-        DirtyValue<uint8_t> batteryPercentRemaining {0};
-        DirtyValue<bool> isCharging {};
         DirtyValue<bool> bleState {};
         DirtyValue<bool> bleRadioEnabled {};
         DirtyValue<std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>> currentDateTime;
         DirtyValue<bool> notificationState {};
-        DirtyValue<uint32_t> stepCount {};
-        DirtyValue<bool> motionSensorOk {};
+        
         
         lv_obj_t* hour_body;
         lv_obj_t* hour_body_trace;
@@ -82,15 +80,13 @@ namespace Pinetime {
         lv_obj_t* label_date_day;
         lv_obj_t* label_hour_minute;
         lv_obj_t* bleIcon;
-        lv_obj_t* chargeIcon;
-        lv_obj_t* stepsIcon;
-        lv_obj_t* stepsValue;
         lv_obj_t* notificationIcon;
 
-        lv_obj_t *batteryArc, *stepsArc, *dateArc;
+        lv_obj_t *dateArc;
 
 
-        BatteryIcon batteryIcon;
+        Widgets::BatteryWidgetIndicator* batteryWidgetIndicator;
+        Widgets::StepsWidgetIndicator* stepsWidgetIndicator;
 
         const Controllers::DateTime& dateTimeController;
         Controllers::Battery& batteryController;
@@ -100,7 +96,6 @@ namespace Pinetime {
         Controllers::MotionController& motionController;
 
         void UpdateClock();
-        void SetBatteryIndicator();
 
         lv_task_t* taskRefresh;
         lv_font_t* font_segment40 = nullptr;
