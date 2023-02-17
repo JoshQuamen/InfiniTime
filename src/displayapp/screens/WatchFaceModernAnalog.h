@@ -10,6 +10,7 @@
 #include "components/ble/BleController.h"
 #include "components/ble/NotificationManager.h"
 #include "components/motion/MotionController.h"
+#include "components/heartrate/HeartRateController.h"
 #include <displayapp/screens/BatteryIcon.h>
 #include "displayapp/widgets/CircleIndicators.h"
 
@@ -20,6 +21,7 @@ namespace Pinetime {
     class Ble;
     class NotificationManager;
     class MotionController;
+    class HeartRateController;
   }
   namespace Applications {
     namespace Screens {
@@ -33,6 +35,7 @@ namespace Pinetime {
                               Controllers::NotificationManager& notificationManager,
                               Controllers::Settings& settingsController,
                               Controllers::MotionController& motionController,
+                              Controllers::HeartRateController& heartRateController,
                               Controllers::FS& fs);
 
         ~WatchFaceModernAnalog() override;
@@ -47,7 +50,7 @@ namespace Pinetime {
         DirtyValue<bool> bleState {};
         DirtyValue<bool> bleRadioEnabled {};
         DirtyValue<std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>> currentDateTime;
-        DirtyValue<bool> notificationState {};
+        DirtyValue<size_t> notificationNumber {};
         
         
         lv_obj_t* hour_body;
@@ -77,10 +80,17 @@ namespace Pinetime {
         lv_obj_t* bleIcon;
         lv_obj_t* notificationIcon;
 
-
-        Widgets::BatteryWidgetIndicator* batteryWidgetIndicator;
-        Widgets::StepsWidgetIndicator* stepsWidgetIndicator;
-        Widgets::DateWidgetIndicator* dateWidgetIndicator;
+        Widgets::ICircleWidgetIndicator* circleWidgets[3];
+        static const int8_t numberOfWidgets = 4;
+        enum CircleWidgetName{
+          BatteryWidget,
+          StepsWidget,
+          DateWidget,
+          HeartRateWidget
+        };
+        CircleWidgetName circleWidgetNames[3];
+        int16_t leadWidgetAngle;
+        bool rotateWidgets;
 
         const Controllers::DateTime& dateTimeController;
         Controllers::Battery& batteryController;
@@ -88,8 +98,12 @@ namespace Pinetime {
         Controllers::NotificationManager& notificationManager;
         Controllers::Settings& settingsController;
         Controllers::MotionController& motionController;
+        Controllers::HeartRateController& heartRateController;
 
         void UpdateClock();
+        void RotateWidgets();
+        bool OnTouchEvent(TouchEvents event) override;
+        void CreateWidgets();
 
         lv_task_t* taskRefresh;
         lv_font_t* font_segment40 = nullptr;

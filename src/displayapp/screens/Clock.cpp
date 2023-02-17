@@ -149,5 +149,6 @@ std::unique_ptr<Screen> Clock::WatchFaceModernAnalog() {
                                                              notificationManager,
                                                              settingsController,
                                                              motionController,
+                                                             heartRateController,
                                                              filesystem);
 }

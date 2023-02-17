@@ -54,6 +54,8 @@
         "stdexcept": "cpp",
         "streambuf": "cpp",
         "cinttypes": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "lv_style.h": "c",
+        "lv_mem.h": "c"
     }
 }

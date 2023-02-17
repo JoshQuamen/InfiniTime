@@ -1,11 +1,12 @@
 #include "displayapp/screens/WatchFaceModernAnalog.h"
-#include <cmath>
+
 #include <lvgl/lvgl.h>
 #include "displayapp/screens/BatteryIcon.h"
 #include "displayapp/screens/Symbols.h"
 #include "displayapp/screens/NotificationIcon.h"
 #include "components/settings/Settings.h"
 #include "components/motion/MotionController.h"
+#include "components/heartrate/HeartRateController.h"
 #include "displayapp/InfiniTimeTheme.h"
 
 LV_IMG_DECLARE(bg_clock);
@@ -19,6 +20,7 @@ namespace {
   constexpr int16_t FivesTickLength = 5;
   constexpr int16_t OnesTickLength = 3;
   constexpr float PI = 3.14159265358979323846;
+  constexpr int16_t WidgetRotationRadius = 60;
 
 
   // sin(90) = 1 so the value of _lv_trigo_sin(90) is the scaling factor
@@ -47,13 +49,14 @@ namespace {
 
 }
 
-WatchFaceModernAnalog::WatchFaceModernAnalog(Pinetime::Applications::DisplayApp* app,
+WatchFaceModernAnalog::WatchFaceModernAnalog(DisplayApp* app,
                                             Controllers::DateTime& dateTimeController,
                                             Controllers::Battery& batteryController,
                                             Controllers::Ble& bleController,
                                             Controllers::NotificationManager& notificationManager,
                                             Controllers::Settings& settingsController,
                                             Controllers::MotionController& motionController,
+                                            Controllers::HeartRateController& heartRateController,
                                             Controllers::FS& filesystem)
   : Screen(app),
     currentDateTime {{}},
@@ -62,7 +65,13 @@ WatchFaceModernAnalog::WatchFaceModernAnalog(Pinetime::Applications::DisplayApp*
     bleController {bleController},
     notificationManager {notificationManager},
     settingsController {settingsController},
-    motionController {motionController} {
+    motionController {motionController},
+    heartRateController {heartRateController}{
+  
+  rotateWidgets = false;
+  circleWidgetNames[0] = BatteryWidget;
+  circleWidgetNames[1] = StepsWidget;
+  circleWidgetNames[2] = DateWidget;
 
   lfs_file f = {};
   if (filesystem.FileOpen(&f, "/fonts/7segments_40.bin", LFS_O_RDONLY) >= 0) {
@@ -87,10 +96,10 @@ WatchFaceModernAnalog::WatchFaceModernAnalog(Pinetime::Applications::DisplayApp*
     lv_style_set_line_width(&(tick_lines_style[i]), LV_STATE_DEFAULT, (i%5 == 0 ? 4:2));
     lv_style_set_line_color(&(tick_lines_style[i]), LV_STATE_DEFAULT, LV_COLOR_WHITE);
     lv_obj_add_style(tick_lines[i], LV_LINE_PART_MAIN, &(tick_lines_style[i]));
-    x1 = (lv_coord_t)(115*cos(PI/180*(i*6+300))+120);
-    x2 = (lv_coord_t)((i%5==0?105:110)*cos(PI/180*(i*6+300))+120);
-    y1 = (lv_coord_t)(115*sin(PI/180*(i*6+300))+120);
-    y2 = (lv_coord_t)((i%5==0?105:110)*sin(PI/180*(i*6+300))+120);
+    x1 = (lv_coord_t)(115*Cosine(i*6+300)/LV_TRIG_SCALE+120);
+    x2 = (lv_coord_t)((i%5==0?105:110)*Cosine(i*6+300)/LV_TRIG_SCALE+120);
+    y1 = (lv_coord_t)(115*Sine(i*6+300)/LV_TRIG_SCALE+120);
+    y2 = (lv_coord_t)((i%5==0?105:110)*Sine(i*6+300)/LV_TRIG_SCALE+120);
     tick_lines_points[i][0] = {x1, y1};
     tick_lines_points[i][1] = {x2, y2};
     lv_line_set_points(tick_lines[i], tick_lines_points[i], 2);
@@ -103,24 +112,7 @@ WatchFaceModernAnalog::WatchFaceModernAnalog(Pinetime::Applications::DisplayApp*
   lv_obj_set_style_local_image_recolor_opa(logoPine, LV_IMG_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_100);
   lv_obj_set_style_local_image_recolor(logoPine, LV_IMG_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
 
-  // Battery Indicator
-  Widgets::Coordinates initialCoords;
-  initialCoords.x = -lv_obj_get_width(lv_scr_act())/4;
-  initialCoords.y = 0;
-  batteryWidgetIndicator = new Widgets::BatteryWidgetIndicator(initialCoords, &batteryController);
-  batteryWidgetIndicator->ChangeColors(0x00FFFF, 0x808080, 0x808080);
-
-  // Step Indicator
-  initialCoords.x = 0;
-  initialCoords.y = lv_obj_get_width(lv_scr_act())/4;
-  stepsWidgetIndicator = new Widgets::StepsWidgetIndicator(initialCoords, &settingsController, &motionController, font_teko);
-  stepsWidgetIndicator->ChangeColors(0x00FFFF, 0x808080, 0x808080);
-
-  // Date Indicator
-  initialCoords.x = lv_obj_get_width(lv_scr_act())/4;
-  initialCoords.y = 0;
-  dateWidgetIndicator = new Widgets::DateWidgetIndicator(initialCoords, &dateTimeController, font_teko);
-  dateWidgetIndicator->ChangeColors(0x00FFFF, 0x808080, 0x808080);
+  CreateWidgets();
 
 
   bleIcon = lv_label_create(lv_scr_act(), nullptr);
@@ -129,9 +121,9 @@ WatchFaceModernAnalog::WatchFaceModernAnalog(Pinetime::Applications::DisplayApp*
   lv_obj_align(bleIcon, nullptr, LV_ALIGN_IN_TOP_RIGHT, 0, 0);
 
   notificationIcon = lv_label_create(lv_scr_act(), NULL);
-  lv_obj_set_style_local_text_color(notificationIcon, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_LIME);
-  lv_label_set_text_static(notificationIcon, NotificationIcon::GetIcon(false));
-  lv_obj_align(notificationIcon, NULL, LV_ALIGN_IN_TOP_LEFT, 0, 0);
+  lv_label_set_text_static(notificationIcon, Symbols::info);
+  lv_obj_set_style_local_text_color(notificationIcon, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x999999));
+  lv_obj_align(notificationIcon, nullptr, LV_ALIGN_IN_TOP_LEFT, 0, 0);
 
   label_hour_minute = lv_label_create(lv_scr_act(), NULL);
   lv_obj_set_style_local_text_color(label_hour_minute, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_CYAN);
@@ -185,6 +177,10 @@ WatchFaceModernAnalog::WatchFaceModernAnalog(Pinetime::Applications::DisplayApp*
 }
 
 WatchFaceModernAnalog::~WatchFaceModernAnalog() {
+  delete circleWidgets[0];
+  delete circleWidgets[1];
+  delete circleWidgets[2];
+
   lv_task_del(taskRefresh);
   
   for(int i = 0; i < 51; i++)
@@ -249,25 +245,61 @@ void WatchFaceModernAnalog::UpdateClock() {
     lv_line_set_points(second_body, second_point, 2);
   }
 }
+bool WatchFaceModernAnalog::OnTouchEvent(Pinetime::Applications::TouchEvents event) {
+  if ((event == Pinetime::Applications::TouchEvents::SwipeLeft)){
+    if(!rotateWidgets){
+      rotateWidgets = true;
+      leadWidgetAngle = 90;
+      delete circleWidgets[0];
+      circleWidgets[0] = circleWidgets[1];
+      circleWidgets[1] = circleWidgets[2];
+      circleWidgetNames[0] = circleWidgetNames[1];
+      circleWidgetNames[1] = circleWidgetNames[2];
+      circleWidgetNames[2] = static_cast<CircleWidgetName>((circleWidgetNames[1]+1) % numberOfWidgets);
+      switch(circleWidgetNames[2])
+      {
+        case BatteryWidget:
+          circleWidgets[2] = new Widgets::BatteryWidgetIndicator({WidgetRotationRadius, 0}, &batteryController);
+          break;
+        case StepsWidget:
+          circleWidgets[2] = new Widgets::StepsWidgetIndicator({WidgetRotationRadius, 0}, &settingsController, &motionController, font_teko);
+          break;
+        case DateWidget:
+          circleWidgets[2] = new Widgets::DateWidgetIndicator({WidgetRotationRadius, 0}, &dateTimeController, font_teko);
+          break;
+        case HeartRateWidget:
+        default:
+          circleWidgets[2] = new Widgets::HeartRateWidgetIndicator({WidgetRotationRadius, 0}, &heartRateController, font_teko);
+          break;
+      }
+      circleWidgets[2]->ChangeColors(0x00FFFF, 0x808080, 0x808080);
+      circleWidgets[2]->SetHidden(true);
+    }
+    return true;
+  }
+  else
+    return false;
+}
 
 void WatchFaceModernAnalog::Refresh() {
-  batteryWidgetIndicator->Refresh();
-  stepsWidgetIndicator->Refresh();
-  dateWidgetIndicator->Refresh();
+  
+  for(auto widget: circleWidgets)
+  {
+    widget->Refresh();
+  }
+
+  if(rotateWidgets)
+    RotateWidgets();
 
   bleState = bleController.IsConnected();
   if(bleState.IsUpdated()){
-    if(bleState.Get()){
-      lv_obj_set_hidden(bleIcon, false);
-    }else{
-      lv_obj_set_hidden(bleIcon, true);
-    }
+    lv_obj_set_hidden(bleIcon, !bleState.Get());
   }
 
-  notificationState = notificationManager.AreNewNotificationsAvailable();
+  notificationNumber = notificationManager.NbNotifications();
 
-  if (notificationState.IsUpdated()) {
-    lv_label_set_text_static(notificationIcon, NotificationIcon::GetIcon(notificationState.Get()));
+  if (notificationNumber.IsUpdated()) {
+    lv_obj_set_hidden(notificationIcon, notificationNumber.Get() == 0);
   }
 
   currentDateTime = dateTimeController.CurrentDateTime();
@@ -291,4 +323,34 @@ bool WatchFaceModernAnalog::IsAvailable(Pinetime::Controllers::FS& filesystem) {
   }
   filesystem.FileClose(&file);
   return true;
+}
+
+void WatchFaceModernAnalog::CreateWidgets()
+{
+  circleWidgets[0] = new Widgets::BatteryWidgetIndicator({-WidgetRotationRadius, 0}, &batteryController);
+  circleWidgets[0]->ChangeColors(0x00FFFF, 0x808080, 0x808080);
+  circleWidgets[1] = new Widgets::StepsWidgetIndicator({0, WidgetRotationRadius}, &settingsController, &motionController, font_teko);
+  circleWidgets[1]->ChangeColors(0x00FFFF, 0x808080, 0x808080);
+  circleWidgets[2] = new Widgets::DateWidgetIndicator({WidgetRotationRadius, 0}, &dateTimeController, font_teko);
+  circleWidgets[2]->ChangeColors(0x00FFFF, 0x808080, 0x808080);
+}
+void WatchFaceModernAnalog::RotateWidgets()
+{
+  
+  if(leadWidgetAngle < 180)
+  {
+    leadWidgetAngle += 10;
+    lv_coord_t x1 = (lv_coord_t)(WidgetRotationRadius*Cosine(leadWidgetAngle)/LV_TRIG_SCALE);
+    lv_coord_t x2 = (lv_coord_t)(WidgetRotationRadius*Cosine(leadWidgetAngle - 90)/LV_TRIG_SCALE);
+    lv_coord_t y1 = (lv_coord_t)(WidgetRotationRadius*Sine(leadWidgetAngle)/LV_TRIG_SCALE);
+    lv_coord_t y2 = (lv_coord_t)(WidgetRotationRadius*Sine(leadWidgetAngle - 90)/LV_TRIG_SCALE);
+    circleWidgets[0]->SetPosition({x1, y1});
+    circleWidgets[1]->SetPosition({x2, y2});
+  }
+  else
+  {
+    circleWidgets[2]->SetHidden(false);
+    rotateWidgets = false;
+  }
+  return;
 }
